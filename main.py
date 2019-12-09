@@ -3,15 +3,22 @@ import requests
 from io import BytesIO
 from PIL import Image
 import os
+
+months = {'january':1,'february':2,'march':3,'april':4,'may':5,'june':6,'july':7,'august':8,'september':9,'october':10,'november':11,'december':12}
+
 def ensure(path):
     dir = os.path.dirname(path)
     if not os.path.exists(dir):
         os.makedirs(dir)
-def useInput():
-    f = open("input.txt",'r')
-    inputData = [k.split() for k in f.readlines()]
-    f.close()
-    months = {'january':1,'february':2,'march':3,'april':4,'may':5,'june':6,'july':7,'august':8,'september':9,'october':10,'november':11,'december':12}
+
+def saveImage(comicLink,image_name):
+    ensure(image_name)
+    r = requests.get(comicLink)
+    i = Image.open(BytesIO(r.content))
+    i.save(image_name)
+    print(image_name)
+
+def useInput(inputData):
     for year in range(int(inputData[0][1]),int(inputData[1][1])+1):
         start = 1
         end = 12
@@ -36,8 +43,59 @@ def useInput():
                     soupI = BeautifulSoup(imgpage,'lxml')
                     comicLink = 'http:'+soupI.find(id = "main-comic")['src'].split('?')[0]
                     image_name = str(year)+'/'+key.capitalize()+'/'+dateString+'-'+author.capitalize()+'.png'
-                    ensure(image_name)
-                    r = requests.get(comicLink)
-                    i = Image.open(BytesIO(r.content))
-                    i.save(image_name)
+                    saveImage(comicLink,image_name)
 
+def useRandom():
+    source = requests.get('http://explosm.net/rcg').text
+    soupS = BeautifulSoup(source,'lxml')
+    panels = soupS.find("div",class_="rcg-panels").find_all("img")
+    n=1
+    for images in panels:
+        comicLink = images["src"]
+        image_name = "random/frame"+str(n)+".png"
+        saveImage(comicLink,image_name)
+        n+=1
+
+def useLatest(N):
+    source = requests.get('http://explosm.net/comics/archive/').text
+    soupS = BeautifulSoup(source,'lxml')
+    currentPanel = soupS.find("dd",class_="accordion-navigation")
+    currentMonth = months[currentPanel.find("li",class_="active").a.text.lower()]
+    currentYear = int(currentPanel.div["id"][5:])
+    while N>0:
+        monthString = str(currentMonth)
+        if currentMonth<10:
+            monthString = "0"+monthString
+        source = requests.get('http://explosm.net/comics/archive/'+str(currentYear)+"/"+monthString).text
+        soupS = BeautifulSoup(source,'lxml')
+        cont = soupS.find('div', class_="small-7 medium-8 large-8 columns").find_all('div', class_="small-12 medium-12 large-12 columns")
+        for containers in cont:
+            dateString = containers.find(id = "comic-author").text.split('<br>')[0].split()
+            author=dateString[2]
+            dateString=dateString[0]
+            imgpage = requests.get('http://explosm.net'+containers.a['href']).text
+            soupI = BeautifulSoup(imgpage,'lxml')
+            comicLink = 'http:'+soupI.find(id = "main-comic")['src'].split('?')[0]
+            image_name = 'latest/'+dateString+'-'+author+'.png'
+            saveImage(comicLink,image_name)
+            N-=1
+            if N==0:
+                break
+        if N!=0:
+            currentMonth-=1
+            if currentMonth==0:
+                currentMonth=12
+                currentYear-=1
+                if currentYear==2004:
+                    print("No more comics")
+                    N=0
+
+f = open("input.txt",'r')
+inputData = [k.split() for k in f.readlines()]
+f.close()
+if inputData[0][0].lower()=="random":
+    useRandom()
+elif inputData[0][0].lower()=="latest":
+    useLatest(int(inputData[0][1]))
+else:
+    useInput(inputData)
