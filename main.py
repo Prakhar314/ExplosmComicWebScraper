@@ -6,6 +6,7 @@ import os
 
 months = {'january':1,'february':2,'march':3,'april':4,'may':5,'june':6,'july':7,'august':8,'september':9,'october':10,'november':11,'december':12}
 
+#Ensure required folder
 def ensure(path):
     dir = os.path.dirname(path)
     if not os.path.exists(dir):
@@ -18,7 +19,32 @@ def saveImage(comicLink,image_name):
     i.save(image_name)
     print(image_name)
 
+def currentTime():
+    source = requests.get('http://explosm.net/comics/archive/').text
+    soupS = BeautifulSoup(source,'lxml')
+    currentPanel = soupS.find("dd",class_="accordion-navigation")
+    currentMonth = months[currentPanel.find("li",class_="active").a.text.lower()]
+    currentYear = int(currentPanel.div["id"][5:])
+    return currentMonth,currentYear
+
+def getMonth(month):
+    for key in months.keys():
+        if months[key]==month:
+            break
+    return key
+
+#Input Type 1
 def useInput(inputData):
+    currentMonth,currentYear = currentTime()
+    if int(inputData[1][1])>currentYear:
+        inputData[1][1]=str(currentYear)
+        inputData[1][0]='december'
+    if int(inputData[1][1])==currentYear:
+        if months[inputData[1][0]]>currentMonth:
+            inputData[1][0]=getMonth(currentMonth)
+    if int(inputData[0][1])<2005:
+        inputData[0][1]='2005'
+        inputData[0][0]='january'
     for year in range(int(inputData[0][1]),int(inputData[1][1])+1):
         start = 1
         end = 12
@@ -30,9 +56,7 @@ def useInput(inputData):
             monthString = str(month)
             if month<10:
                 monthString = "0"+monthString
-            for key in months.keys():
-                if months[key]==month:
-                    break
+            key = getMonth(month)
             for author in inputData[2]:
                 source = requests.get('http://explosm.net/comics/archive/'+str(year)+"/"+monthString+"/"+author.lower()).text
                 soupS = BeautifulSoup(source,'lxml')
@@ -45,6 +69,7 @@ def useInput(inputData):
                     image_name = str(year)+'/'+key.capitalize()+'/'+dateString+'-'+author.capitalize()+'.png'
                     saveImage(comicLink,image_name)
 
+#Input (Bonus) Type 1
 def useRandom():
     source = requests.get('http://explosm.net/rcg').text
     soupS = BeautifulSoup(source,'lxml')
@@ -56,12 +81,9 @@ def useRandom():
         saveImage(comicLink,image_name)
         n+=1
 
+#Input (Bonus) Type 2
 def useLatest(N):
-    source = requests.get('http://explosm.net/comics/archive/').text
-    soupS = BeautifulSoup(source,'lxml')
-    currentPanel = soupS.find("dd",class_="accordion-navigation")
-    currentMonth = months[currentPanel.find("li",class_="active").a.text.lower()]
-    currentYear = int(currentPanel.div["id"][5:])
+    currentMonth,currentYear = currentTime()
     while N>0:
         monthString = str(currentMonth)
         if currentMonth<10:
@@ -93,6 +115,7 @@ def useLatest(N):
 f = open("input.txt",'r')
 inputData = [k.split() for k in f.readlines()]
 f.close()
+
 if inputData[0][0].lower()=="random":
     useRandom()
 elif inputData[0][0].lower()=="latest":
