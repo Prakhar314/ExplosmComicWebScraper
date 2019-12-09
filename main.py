@@ -116,6 +116,7 @@ f = open("input.txt",'r')
 inputData = [k.split() for k in f.readlines()]
 f.close()
 
+""" INPUT FORMATS ARE THE ORIGINAL ONES"""
 if inputData[0][0].lower()=="random":
     useRandom()
 elif inputData[0][0].lower()=="latest":
